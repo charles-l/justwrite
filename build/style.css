@@ -1,0 +1,188 @@
+@font-face {
+  font-family: Alegreya;
+  font-style: normal;
+  font-weight: normal;
+  src: url(Alegreya-Regular.otf);
+}
+
+@font-face {
+  font-family: Alegreya;
+  font-style: normal;
+  font-weight: bold;
+  src: url(Alegreya-Bold.otf);
+}
+
+@font-face {
+  font-family: Alegreya;
+  font-style: italic;
+  font-weight: normal;
+  src: url(Alegreya-Italic.otf);
+}
+
+/* TODO: load in fonts for italic/bold */
+
+@font-face {
+  font-family: SpaceGrotesk;
+  src: url(SpaceGrotesk-1.1.6/otf/SpaceGrotesk-Bold.otf);
+}
+
+@font-face {
+  font-family: SpaceGroteskReg;
+  src: url(SpaceGrotesk-1.1.6/otf/SpaceGrotesk-Regular.otf);
+}
+
+html {
+  /* reset { */
+    box-sizing: border-box;
+    font-size: 1.3rem;
+  /* } */
+  text-rendering: optimizeLegibility;
+  font-family: Alegreya;
+}
+
+*, *:before, *:after {
+  /* reset { */
+    box-sizing: inherit;
+  /* } */
+}
+
+body, h1, h2, h3, h4, h5, h6, p, ol, ul {
+  /* reset { */
+    margin: 0;
+    padding: 0;
+    font-weight: normal;
+  /* } */
+  word-wrap: break-word;
+  hyphens: auto;
+  line-height: 1.45em;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: SpaceGrotesk;
+  font-weight: normal;
+  margin-top: 0.8em;
+  margin-bottom: 0.05em;
+  line-height: 1.2;
+}
+
+h1 { font-size: 4.209rem; }
+h2 { font-size: 3.157rem; }
+h3 { font-size: 2.369rem; }
+h4 { font-size: 1.777rem; }
+h5 { font-size: 1.5rem; }
+h6 { font-size: 1rem; }
+small {font-size: 0.8rem; }
+
+.logo {
+  font-family: Alegreya;
+  font-weight: bold;
+  background-color: #000;
+  color: #fff;
+  font-size: 2rem;
+  width: 1.7em;
+  height: 1.7em;
+  padding-top: 0.5em;
+  display: block;
+  text-align: center;
+}
+
+p {
+  color: #222;
+}
+
+p + p {
+  text-indent: 1.5rem;
+}
+
+a {
+  color: #222;
+}
+
+ol, ul {
+  /* reset { */
+    list-style: none;
+  /* } */
+}
+
+img, pre {
+  margin: 2.5em 0 2.5em 0;
+}
+
+img {
+  /* reset { */
+    max-width: 100%;
+    height: auto;
+  /* } */
+}
+
+pre, code {
+  background-color: #eee;
+  font-size: 0.8rem;
+}
+
+code {
+  padding: 0.2em;
+}
+
+pre {
+  padding: 1em;
+  overflow: auto;
+}
+
+header {
+  max-width: 52rem;
+  margin: auto;
+}
+
+.w {
+  /* shim for footer */
+  padding: 0;
+  margin: 0;
+  height: 100%;
+}
+
+article, main {
+  max-width: 40rem;
+  padding: 1rem;
+  margin: auto;
+}
+
+footer {
+  background-color: #222;
+  padding: 1rem;
+  margin-top: 4em;
+  height: 3rem;
+}
+
+footer p {
+  color: #fff;
+}
+
+footer div {
+  max-width: 52rem;
+  margin: auto;
+}
+
+.vcard .author {
+  display: inline-block;
+  margin-top: 0.15em;
+}
+
+.byline {
+  display: block;
+  height: 3em;
+  width: 100%;
+  margin-bottom: 1em;
+}
+
+.vcard .photo {
+  float: left;
+  display: block;
+  border-radius: 50%;
+  width: 3em;
+  margin: 0 0.5em 0 0;
+}
+
+dt {
+  font-weight: bold;
+}
