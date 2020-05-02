@@ -14,7 +14,10 @@
         main {
             max-width: 100%;
         }
-
+        button > code {
+            padding: 0;
+            font-size: 1em;
+        }
         </style>
     </head>
     <body>
@@ -29,7 +32,7 @@
                     <div class="toolbar">
                         <button type="button" onclick="toggleOnSelection('_')"><i>emphasis</i></button>
                         <button type="button" onclick="toggleOnSelection('`')"><code>code</code></button>
-                        <button type="button" onclick="prefixBlockQuote()">quote</button>
+                        <button type="button" onclick="prefixBlockQuote()">&gt; quote</button>
                     </div>
                     <textarea id="contents" name="contents">{{.Contents}}</textarea>
                     <input type="submit" value="Save"/>

@@ -3,27 +3,123 @@ package main
 import (
 	"bytes"
 	"compress/gzip"
-
-	// Markdown is complicated enough that I'm willing to pay the cost of using
-	// an external lib. I would normally prefer a smaller one, but this one
-	// does a lot of good things out of the box including typographic
-	// transforms like smart-quotes.
-	"gitlab.com/golang-commonmark/markdown"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
 	"path"
+	"reflect"
 	"strings"
 	"text/template"
+
+	// Markdown is complicated enough that I'm willing to pay the cost of using
+	// an external lib. I would normally prefer a smaller one, but this one
+	// does a lot of good things out of the box including typographic
+	// transforms like smart-quotes.
+	"gitlab.com/golang-commonmark/markdown"
 )
 
 type Post struct {
 	Title   string
 	Author  string
 	Date    string
-	Content string
+	Content []byte
+}
+
+const metadataDelimiter = "+++"
+
+func loadPost(r io.Reader) (Post, error) {
+	bs, err := ioutil.ReadAll(r)
+	if err != nil {
+		return Post{}, err
+	}
+
+	// Remove CRLF
+	bs = bytes.ReplaceAll(bs, []byte("\r\n"), []byte("\n"))
+
+	s := strings.TrimSpace(string(bs[:len(metadataDelimiter)+1]))
+	if s == metadataDelimiter {
+		bs = bs[len(metadataDelimiter):]
+	} else {
+		return Post{},
+			fmt.Errorf("Post doesn't begin with a metadata block (\"%s\"), got: '%s'", metadataDelimiter, s)
+	}
+
+	idx := bytes.Index(bs, []byte(metadataDelimiter))
+	if idx == -1 {
+		return Post{},
+			fmt.Errorf("Post doesn't have an end to the metadata block (\"%s\")", metadataDelimiter)
+	}
+
+	var post Post
+	metadata := make(map[string]string)
+	for _, l := range strings.Split(string(bs[:idx]), "\n") {
+		if l != "" {
+			kvpair := strings.Split(l, "=")
+			if len(kvpair) != 2 {
+				return Post{},
+					fmt.Errorf("Malformated metadata, not a key-value pair: %s", kvpair)
+			}
+			metadata[strings.TrimSpace(kvpair[0])] = strings.TrimSpace(kvpair[1])
+		}
+	}
+
+	{ // struct with metadata
+		ty := reflect.ValueOf(post).Type()
+
+		for i := 0; i < ty.NumField(); i++ {
+			if n := ty.Field(i).Name; n != "Content" {
+				if val, ok := metadata[n]; ok {
+					reflect.ValueOf(&post).Elem().FieldByName(n).SetString(val)
+				}
+			}
+		}
+	}
+
+	post.Content = bs[idx+len(metadataDelimiter):]
+
+	return post, nil
+}
+
+func (p Post) savePost(w io.Writer) error {
+	v := reflect.ValueOf(p)
+	ty := v.Type()
+
+	metadataLines := []string{metadataDelimiter}
+
+	for i := 0; i < ty.NumField(); i++ {
+		if ty.Field(i).Name != "Content" {
+			// Assumes string for now -- might have to use interface{} in
+			// the future...
+
+			metadataLines = append(metadataLines,
+				fmt.Sprintf("%s = %s",
+					ty.Field(i).Name, v.Field(i).Interface().(string)))
+		}
+	}
+	metadataLines = append(metadataLines, metadataDelimiter)
+
+	w.Write([]byte(strings.Join(metadataLines, "\n")))
+	w.Write(p.Content)
+
+	return nil
+}
+
+func (p Post) renderPost(w io.Writer) {
+	tmpl := template.Must(template.ParseFiles("template.html"))
+	md := markdown.New(markdown.XHTMLOutput(true))
+
+	err := tmpl.Execute(w, struct {
+		Title   string
+		Author  string
+		Date    string
+		Content string
+	}{p.Title, p.Author, p.Date, md.RenderToString(p.Content)})
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 type gzipWriter struct {
@@ -73,23 +169,26 @@ func (h *adminHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	log.Println(components, len(components))
 
 	if len(components) == 1 {
-		tmpl := template.Must(template.ParseFiles("post-list-template.html"))
+		if r.Method == "GET" {
+			tmpl := template.Must(template.ParseFiles("post-list-template.html"))
 
-		files, err := ioutil.ReadDir("./raw")
-		if err != nil {
-			http.Error(w, err.Error(), 500)
-			return
-		}
+			files, err := ioutil.ReadDir("./raw")
+			if err != nil {
+				http.Error(w, err.Error(), 500)
+				return
+			}
 
-		var Posts []string
-		for _, f := range files {
-			Posts = append(Posts, f.Name())
-		}
+			var Posts []string
+			for _, f := range files {
+				Posts = append(Posts, f.Name())
+			}
 
-		tmplData := struct{ Posts []string }{Posts}
-		if err = tmpl.Execute(w, tmplData); err != nil {
-			http.Error(w, err.Error(), 500)
-			return
+			tmplData := struct{ Posts []string }{Posts}
+			if err = tmpl.Execute(w, tmplData); err != nil {
+				http.Error(w, err.Error(), 500)
+				return
+			}
+		} else if r.Method == "POST" {
 		}
 	} else if len(components) == 2 {
 		if r.Method == "GET" {
@@ -116,75 +215,38 @@ func (h *adminHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			postName := components[1]
-			ioutil.WriteFile(path.Join("raw", postName), []byte(r.FormValue("contents")), 0770)
 
-			buildPost(postName)
+			p, err := loadPost(bytes.NewReader([]byte(r.FormValue("contents"))))
+			if err != nil {
+				http.Error(w, "error: "+err.Error(), 500)
+				return
+			}
+
+			source, err := os.Create(path.Join("raw", postName))
+			if err != nil {
+				http.Error(w, "error: "+err.Error(), 500)
+				return
+			}
+			defer source.Close()
+			p.savePost(source)
+
+			out, err := os.Create(path.Join("build", strings.TrimSuffix(postName, ".md")+".html"))
+			defer out.Close()
+
+			if err != nil {
+				http.Error(w, "error: "+err.Error(), 500)
+				return
+			}
+
+			p.renderPost(out)
 
 			http.Redirect(w, r, "/_admin/"+postName, http.StatusMovedPermanently)
 		}
 	}
 }
 
-func buildPost(name string) Post {
-	tmpl := template.Must(template.ParseFiles("template.html"))
-	md := markdown.New(markdown.XHTMLOutput(true))
-	p := path.Join("raw", name)
-
-	bs, err := ioutil.ReadFile(p)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	idx := bytes.Index(bs, []byte("---"))
-	var metadataLines []string
-	if idx == -1 {
-		// TODO: warn the user that there's no metadata
-		idx = 0
-	} else {
-		metadataLines = strings.Split(string(bs[0:idx]), "\n")
-		idx += 3
-		bs = bs[idx:len(bs)]
-	}
-
-	var post Post
-	for _, l := range metadataLines {
-		if l == "" {
-			continue
-		}
-
-		kvpair := strings.Split(l, ":")
-		if len(kvpair) != 2 {
-			log.Fatal("malformated metadata for ", p, ", not a key-value pair ", kvpair)
-		}
-		key := strings.TrimSpace(kvpair[0])
-		value := strings.TrimSpace(kvpair[1])
-		if key == "title" {
-			post.Title = value
-		} else if key == "author" {
-			post.Author = value
-		}
-	}
-
-	post.Content = md.RenderToString(bs)
-
-	f, err := os.Create(path.Join("build", strings.TrimSuffix(name, ".md")+".html"))
-	defer f.Close()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	err = tmpl.Execute(f, post)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	log.Println(post)
-
-	return post
-}
-
 func build() {
-	files, err := ioutil.ReadDir("./raw")
+	files, err := ioutil.ReadDir("raw")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -194,7 +256,26 @@ func build() {
 			continue
 		}
 
-		buildPost(f.Name())
+		in, err := os.Open(path.Join("raw", f.Name()))
+		defer in.Close()
+
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		p, err := loadPost(in)
+		if err != nil {
+			log.Fatal(f.Name()+": ", err)
+		}
+
+		out, err := os.Create(path.Join("build", strings.TrimSuffix(f.Name(), ".md")+".html"))
+		defer out.Close()
+
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		p.renderPost(out)
 	}
 }
 

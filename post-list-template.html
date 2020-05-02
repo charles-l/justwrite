@@ -12,9 +12,12 @@
                 <h3>Posts</h3>
                 <ul>
                 {{- range .Posts}}
-                    <li><a href="/_admin/{{.}}">{{.}}</li>
+                    <li><a href="/_admin/{{.}}">{{.}}</a></li>
                 {{- end}}
                 </ul>
+                <form action="/_admin" method="post">
+                    <input type="text"/><input type="submit" value="New Post">
+                </form>
             </main>
         </div>
     </body>

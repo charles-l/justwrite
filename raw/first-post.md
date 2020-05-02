@@ -1,7 +1,8 @@
-author: charles
-date: 2019-01-01
-title: Coding with OpenGL
----
++++
+Title = Test
+Author = Charles
+Date = 2019-01-01
++++
 
 ## some content, yo!
 
@@ -35,4 +36,4 @@ Oh, are em dashes handled properly? I just want to make sure - they're a major p
 > 
 > **--Joe Bloggs**
 
-Here's some new content___
+Here's some new content: here's more.
