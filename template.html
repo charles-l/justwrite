@@ -1,0 +1,32 @@
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <link rel="stylesheet" type="text/css" href="/style.css">
+    </head>
+    <body>
+        <div class="w">
+            <header>
+                <span class="logo">W</span>
+            </header>
+            <article>
+                <h1>{{.Title}}</h1>
+                <div class="byline">
+                    <div class="vcard">
+                        <img class="photo" src="/avatar.jpg" />
+                        <address class="author">
+                            <a href="https://c.har.li/e" rel="author" class="url fn">{{.Author}}</a>
+                        </address>
+                    </div>
+                    on <time pubdate datetime="{{.Date}}" title="{{.Date}}">{{.Date}}</time> &bull; 5 min read
+                </div>
+                {{.Content}}
+            </article>
+        </div>
+
+        <!--footer>
+            <div>
+                <p>Stuff stuff, &copy; 2013, etc</p>
+            </div>
+        </footer-->
+    </body>
+</html>

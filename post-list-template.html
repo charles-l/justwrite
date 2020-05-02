@@ -1,0 +1,21 @@
+<html>
+    <head>
+        <link rel="stylesheet" type="text/css" href="/style.css">
+    </head>
+    <body>
+        <div class="w">
+            <header>
+                <span class="logo">W</span>
+                <b>Admin page</b>
+            </header>
+            <main>
+                <h3>Posts</h3>
+                <ul>
+                {{- range .Posts}}
+                    <li><a href="/_admin/{{.}}">{{.}}</li>
+                {{- end}}
+                </ul>
+            </main>
+        </div>
+    </body>
+</html>

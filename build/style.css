@@ -90,8 +90,23 @@ p {
   color: #222;
 }
 
+article > p:first-of-type {
+  font-size: 1.2em;
+  line-height: 1.33em;
+  margin-bottom: 2em;;
+}
+
 p + p {
   text-indent: 1.5rem;
+}
+
+/*--- QUOTES ---*/
+/*blockquote:before { content: '\201c' }
+blockquote:after { content: '\201d' }*/
+blockquote {
+  margin: 1.5em;
+  border-left: 5px solid #ccc;
+  padding-left: 10px;
 }
 
 a {
@@ -103,6 +118,8 @@ ol, ul {
     list-style: none;
   /* } */
 }
+
+ul {list-style: circle outside;}
 
 img, pre {
   margin: 2.5em 0 2.5em 0;

@@ -1,0 +1,88 @@
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <link rel="stylesheet" type="text/css" href="/style.css">
+        <style>
+        textarea {
+            width: 100%;
+            height: 100%;
+
+            background: #fff9ef;
+            padding: 1em;
+            font-size: 1rem;
+        }
+        main {
+            max-width: 100%;
+        }
+
+        </style>
+    </head>
+    <body>
+        <div class="w">
+            <header>
+                <span class="logo">W</span>
+                <b>Admin page</b>
+            </header>
+            <main>
+                <h3>Edit {{.Name}}</h3>
+                <form action="/_admin/{{.Name}}" method="post">
+                    <div class="toolbar">
+                        <button type="button" onclick="toggleOnSelection('_')"><i>emphasis</i></button>
+                        <button type="button" onclick="toggleOnSelection('`')"><code>code</code></button>
+                        <button type="button" onclick="prefixBlockQuote()">quote</button>
+                    </div>
+                    <textarea id="contents" name="contents">{{.Contents}}</textarea>
+                    <input type="submit" value="Save"/>
+                </form>
+            </main>
+        </div>
+        <script src="/behave.js"></script>
+        <script>
+            var textArea = document.getElementById('contents');
+            var editor = new Behave({textarea: textArea});
+
+            var expandToLines = function(str, start, end) {
+                while(start > 1 && str[start-1] != "\n") start--;
+                while(end < str.length - 1 && str[end] != "\n") end++;
+                return [start, end]
+            }
+
+            var prefixBlockQuote = function() {
+                var [start, end] = expandToLines(textArea.value,
+                    textArea.selectionStart, textArea.selectionEnd);
+
+                lines = textArea.value.slice(start, end)
+                    .split("\n")
+                    .map(function(x) {
+                        if(x.startsWith("> ")) {
+                            return x.slice(2);
+                        } else {
+                            return "> " + x;
+                        }
+                    })
+                    .join("\n");
+
+                textArea.value = textArea.value.slice(0, start) +
+                    lines +
+                    textArea.value.slice(end);
+            }
+
+            var toggleOnSelection = function(char) {
+                var s = textArea.value;
+                if(s[textArea.selectionStart] == char &&
+                    s[textArea.selectionEnd-1] == char) {
+                    textArea.value =
+                        s.slice(0, textArea.selectionStart) +
+                        s.slice(textArea.selectionStart + 1, textArea.selectionEnd-1) +
+                        s.slice(textArea.selectionEnd);
+                } else {
+                    textArea.value = s.slice(0, textArea.selectionStart) +
+                        char +
+                        s.slice(textArea.selectionStart, textArea.selectionEnd) +
+                        char +
+                        s.slice(textArea.selectionEnd);
+                }
+            };
+        </script>
+    </body>
+</html>
