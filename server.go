@@ -11,8 +11,10 @@ import (
 	"os"
 	"path"
 	"reflect"
+	"regexp"
 	"strings"
 	"text/template"
+	"time"
 
 	// Markdown is complicated enough that I'm willing to pay the cost of using
 	// an external lib. I would normally prefer a smaller one, but this one
@@ -165,14 +167,13 @@ func (h *adminHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	components := strings.Split(strings.TrimPrefix(upath, "/_admin"), "/")
-
-	log.Println(components, len(components))
+	log.Println(components, len(components), r.Method)
 
 	if len(components) == 1 {
 		if r.Method == "GET" {
 			tmpl := template.Must(template.ParseFiles("post-list-template.html"))
 
-			files, err := ioutil.ReadDir("./raw")
+			files, err := ioutil.ReadDir("raw")
 			if err != nil {
 				http.Error(w, err.Error(), 500)
 				return
@@ -189,6 +190,32 @@ func (h *adminHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		} else if r.Method == "POST" {
+			log.Println("creating new post")
+			if err := r.ParseForm(); err != nil {
+				http.Error(w, "error: "+err.Error(), 400)
+				return
+			}
+			postName := r.FormValue("post_name")
+			postFilename := regexp.MustCompile(`[^\w\d-]`).ReplaceAllString(postName, "-") + ".md"
+
+			author := "charles"
+			y, m, d := time.Now().Date()
+			p := Post{
+				string(postName),
+				author,
+				fmt.Sprintf("%d-%d-%d", y, m, d),
+				[]byte{},
+			}
+
+			source, err := os.Create(path.Join("raw", postFilename))
+			if err != nil {
+				http.Error(w, "error: "+err.Error(), 500)
+				return
+			}
+			defer source.Close()
+			p.savePost(source)
+
+			http.Redirect(w, r, "/_admin/"+postFilename, http.StatusMovedPermanently)
 		}
 	} else if len(components) == 2 {
 		if r.Method == "GET" {

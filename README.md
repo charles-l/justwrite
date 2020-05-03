@@ -2,7 +2,7 @@
 
 A blogging tool with an emphasis on semantic content, high-quality design, and performance.
 
-Features:
+Features (TODO):
 
 * A single, stand-alone binary (or zip of binaries?) that you can drop onto your server
   featuring a CMS, optimizing asset pipeline, and static hosting server.
@@ -11,6 +11,21 @@ Features:
 * An optimizing asset pipeline that ensures your content renders fast on visitors' devices,
   saving you, and them, bandwidth.
 * Automatic configuration of HTTPS(?)
+
+#### Semantic support
+
+* http://microformats.org/wiki/posh
+* http://microformats.org/wiki/blog-post-formats
+
+#### Styling/Themes (TODO)
+
+* https://www.smashingmagazine.com/2011/03/technical-web-typography-guidelines-and-techniques/#tt-hanging
+* https://markboulton.co.uk/journal/five-simple-steps-to-better-typography-part-2/
+* http://typeplate.com/
+* https://checkmyworking.com/cm-web-fonts/
+* https://edwardtufte.github.io/tufte-css/
+* https://meyerweb.com/
+
 
 ## Wishlist
 
