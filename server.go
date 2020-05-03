@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"compress/gzip"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -21,6 +20,10 @@ import (
 	// does a lot of good things out of the box including typographic
 	// transforms like smart-quotes.
 	"gitlab.com/golang-commonmark/markdown"
+
+	// http router
+	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/middleware"
 )
 
 type Post struct {
@@ -82,7 +85,40 @@ func loadPost(r io.Reader) (Post, error) {
 
 	post.Content = bs[idx+len(metadataDelimiter):]
 
+	// TODO find a better name, because this metadata is related to the underlying files...
+
 	return post, nil
+}
+
+// I would use a sum type here, but go doesn't have them...
+// Now I have to worry about not attempting to use PublishedAt
+// in an invalid way -_-
+type PostMetadata struct {
+	LastUpdated time.Time
+	PublishedAt *time.Time
+}
+
+func (m PostMetadata) isPublishedUpToDate() bool {
+	return m.PublishedAt != nil && m.LastUpdated.Before(*m.PublishedAt)
+}
+
+func loadPostMetadata(postName string) (PostMetadata, error) {
+	publishedPostName := strings.TrimSuffix(postName, ".md") + ".html"
+
+	rawStat, err := os.Stat(path.Join("raw", postName))
+	if err != nil {
+		return PostMetadata{}, err
+	}
+
+	buildStat, err := os.Stat(path.Join("build", publishedPostName))
+	if os.IsNotExist(err) {
+		return PostMetadata{rawStat.ModTime(), nil}, nil
+	} else if err != nil {
+		return PostMetadata{}, err
+	} else { // buildStat exists
+		publishedDate := buildStat.ModTime()
+		return PostMetadata{rawStat.ModTime(), &publishedDate}, nil
+	}
 }
 
 func (p Post) savePost(w io.Writer) error {
@@ -124,154 +160,6 @@ func (p Post) renderPost(w io.Writer) {
 	}
 }
 
-type gzipWriter struct {
-	io.Writer
-	http.ResponseWriter
-}
-
-func (w gzipWriter) Write(bs []byte) (int, error) {
-	return w.Writer.Write(bs)
-}
-
-func gzipMiddleware(next http.Handler) http.Handler {
-	// TODO: consider storing gzipped content, and only return
-	// the uncompressed version if the Accept-Encoding doesn't include gzip?
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
-			next.ServeHTTP(w, r)
-			return
-		}
-
-		w.Header().Set("Content-Encoding", "gzip")
-
-		gz, err := gzip.NewWriterLevel(w, gzip.BestCompression)
-		if err != nil {
-			panic(err)
-		}
-
-		defer gz.Close()
-
-		next.ServeHTTP(gzipWriter{gz, w}, r)
-	})
-}
-
-type adminHandler struct{}
-
-func (h *adminHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	w.Header().Add("Content-Type", "text/html")
-
-	upath := path.Clean(r.URL.Path)
-	if !strings.HasPrefix(upath, "/") {
-		upath = "/" + upath
-		r.URL.Path = upath
-	}
-
-	components := strings.Split(strings.TrimPrefix(upath, "/_admin"), "/")
-	log.Println(components, len(components), r.Method)
-
-	if len(components) == 1 {
-		if r.Method == "GET" {
-			tmpl := template.Must(template.ParseFiles("post-list-template.html"))
-
-			files, err := ioutil.ReadDir("raw")
-			if err != nil {
-				http.Error(w, err.Error(), 500)
-				return
-			}
-
-			var Posts []string
-			for _, f := range files {
-				Posts = append(Posts, f.Name())
-			}
-
-			tmplData := struct{ Posts []string }{Posts}
-			if err = tmpl.Execute(w, tmplData); err != nil {
-				http.Error(w, err.Error(), 500)
-				return
-			}
-		} else if r.Method == "POST" {
-			log.Println("creating new post")
-			if err := r.ParseForm(); err != nil {
-				http.Error(w, "error: "+err.Error(), 400)
-				return
-			}
-			postName := r.FormValue("post_name")
-			postFilename := regexp.MustCompile(`[^\w\d-]`).ReplaceAllString(postName, "-") + ".md"
-
-			author := "charles"
-			y, m, d := time.Now().Date()
-			p := Post{
-				string(postName),
-				author,
-				fmt.Sprintf("%d-%d-%d", y, m, d),
-				[]byte{},
-			}
-
-			source, err := os.Create(path.Join("raw", postFilename))
-			if err != nil {
-				http.Error(w, "error: "+err.Error(), 500)
-				return
-			}
-			defer source.Close()
-			p.savePost(source)
-
-			http.Redirect(w, r, "/_admin/"+postFilename, http.StatusMovedPermanently)
-		}
-	} else if len(components) == 2 {
-		if r.Method == "GET" {
-			tmpl := template.Must(template.ParseFiles("post-edit-template.html"))
-
-			postName := components[1]
-			contents, err := ioutil.ReadFile(path.Join("raw", postName))
-			if err != nil {
-				http.Error(w, err.Error(), 500)
-				return
-			}
-
-			tmplData := struct {
-				Name     string
-				Contents string
-			}{postName, string(contents)}
-			if tmpl.Execute(w, tmplData); err != nil {
-				http.Error(w, err.Error(), 500)
-				return
-			}
-		} else if r.Method == "POST" {
-			if err := r.ParseForm(); err != nil {
-				http.Error(w, "error: "+err.Error(), 400)
-				return
-			}
-			postName := components[1]
-
-			p, err := loadPost(bytes.NewReader([]byte(r.FormValue("contents"))))
-			if err != nil {
-				http.Error(w, "error: "+err.Error(), 500)
-				return
-			}
-
-			source, err := os.Create(path.Join("raw", postName))
-			if err != nil {
-				http.Error(w, "error: "+err.Error(), 500)
-				return
-			}
-			defer source.Close()
-			p.savePost(source)
-
-			out, err := os.Create(path.Join("build", strings.TrimSuffix(postName, ".md")+".html"))
-			defer out.Close()
-
-			if err != nil {
-				http.Error(w, "error: "+err.Error(), 500)
-				return
-			}
-
-			p.renderPost(out)
-
-			http.Redirect(w, r, "/_admin/"+postName, http.StatusMovedPermanently)
-		}
-	}
-}
-
 func build() {
 	files, err := ioutil.ReadDir("raw")
 	if err != nil {
@@ -309,13 +197,141 @@ func build() {
 func main() {
 	build()
 
-	http.Handle("/_admin/", &adminHandler{})
+	router := chi.NewRouter()
+	router.Use(middleware.NewCompressor(5, "text/html", "text/css").Handler)
+	router.Use(middleware.Logger)
 
-	fs := http.FileServer(http.Dir("./build"))
-	http.Handle("/", gzipMiddleware(fs))
+	router.Route("/_admin/", func(adminRoute chi.Router) {
+		adminRoute.Get("/", func(w http.ResponseWriter, r *http.Request) {
+			tmpl := template.Must(template.ParseFiles("post-list-template.html"))
+
+			files, err := ioutil.ReadDir("raw")
+			if err != nil {
+				http.Error(w, err.Error(), 500)
+				return
+			}
+
+			var Posts []string
+			for _, f := range files {
+				Posts = append(Posts, f.Name())
+			}
+
+			tmplData := struct{ Posts []string }{Posts}
+			if err = tmpl.Execute(w, tmplData); err != nil {
+				http.Error(w, err.Error(), 500)
+				return
+			}
+		})
+
+		adminRoute.Post("/", func(w http.ResponseWriter, r *http.Request) {
+			if err := r.ParseForm(); err != nil {
+				http.Error(w, "error: "+err.Error(), 400)
+				return
+			}
+			postName := r.FormValue("post_name")
+			postFilename := regexp.MustCompile(`[^\w\d-]`).ReplaceAllString(postName, "-") + ".md"
+
+			author := "charles"
+			y, m, d := time.Now().Date()
+			p := Post{
+				string(postName),
+				author,
+				fmt.Sprintf("%d-%d-%d", y, m, d),
+				[]byte{},
+			}
+
+			source, err := os.Create(path.Join("raw", postFilename))
+			if err != nil {
+				http.Error(w, "error: "+err.Error(), 500)
+				return
+			}
+			defer source.Close()
+			p.savePost(source)
+
+			http.Redirect(w, r, "/_admin/"+postFilename, http.StatusMovedPermanently)
+		})
+
+		adminRoute.Get("/{postName}", func(w http.ResponseWriter, r *http.Request) {
+			tmpl := template.Must(template.ParseFiles("post-edit-template.html"))
+
+			postName := chi.URLParam(r, "postName")
+
+			contents, err := ioutil.ReadFile(path.Join("raw", postName))
+			if err != nil {
+				http.Error(w, fmt.Sprintf("error reading '%s': ", postName)+err.Error(), 500)
+				return
+			}
+
+			postMetadata, err := loadPostMetadata(postName)
+			if err != nil {
+				http.Error(w, fmt.Sprintf("error reading metadata for '%s': ", postName)+err.Error(), 500)
+				return
+			}
+
+			tmplData := struct {
+				Name         string
+				Contents     string
+				PostMetadata PostMetadata
+			}{postName, string(contents), postMetadata}
+			if tmpl.Execute(w, tmplData); err != nil {
+				http.Error(w, err.Error(), 500)
+				return
+			}
+		})
+
+		adminRoute.Post("/{postName}", func(w http.ResponseWriter, r *http.Request) {
+			if err := r.ParseForm(); err != nil {
+				http.Error(w, "error: "+err.Error(), 400)
+				return
+			}
+
+			postName := chi.URLParam(r, "postName")
+
+			p, err := loadPost(bytes.NewReader([]byte(r.FormValue("contents"))))
+			if err != nil {
+				http.Error(w, "error: "+err.Error(), 500)
+				return
+			}
+
+			source, err := os.Create(path.Join("raw", postName))
+			if err != nil {
+				http.Error(w, "error: "+err.Error(), 500)
+				return
+			}
+			defer source.Close()
+			p.savePost(source)
+
+			publishedPostName := strings.TrimSuffix(postName, ".md") + ".html"
+			out, err := os.Create(path.Join("build", publishedPostName))
+			defer out.Close()
+
+			if err != nil {
+				http.Error(w, "error: "+err.Error(), 500)
+				return
+			}
+
+			p.renderPost(out)
+
+			http.Redirect(w, r, "/_admin/"+postName, http.StatusMovedPermanently)
+		})
+
+		adminRoute.Delete("/{postName}", func(w http.ResponseWriter, r *http.Request) {
+			// TODO: secure this a bit
+			postName := chi.URLParam(r, "postName")
+			publishedPostName := strings.TrimSuffix(postName, ".md") + ".html"
+
+			os.Remove(path.Join("build", publishedPostName))
+			os.Remove(path.Join("raw", postName))
+
+			http.Redirect(w, r, "/_admin/", http.StatusMovedPermanently)
+		})
+	})
+
+	fs := http.StripPrefix("/", http.FileServer(http.Dir("build")))
+	router.Get("/*", fs.ServeHTTP)
 
 	log.Println("Listening on :8080")
-	if err := http.ListenAndServe(":8080", nil); err != nil {
+	if err := http.ListenAndServe(":8080", router); err != nil {
 		log.Fatal(err)
 	}
 }

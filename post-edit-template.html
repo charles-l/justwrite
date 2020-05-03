@@ -18,6 +18,9 @@
             padding: 0;
             font-size: 1em;
         }
+        .single-button-form {
+            display: inline-block;
+        }
         </style>
     </head>
     <body>
@@ -28,6 +31,14 @@
             </header>
             <main>
                 <h3>Edit {{.Name}}</h3>
+                <p>
+                    {{- if not .PostMetadata.PublishedAt }}
+                    Unpublished
+                    {{- else}}
+                    Published on {{.PostMetadata.PublishedAt}}
+                    {{- end}}
+                    <button onclick="deletePost()">Delete</button>
+                </p>
                 <form action="/_admin/{{.Name}}" method="post">
                     <div class="toolbar">
                         <button type="button" onclick="toggleOnSelection('_')"><i>emphasis</i></button>
@@ -85,6 +96,14 @@
                         char +
                         s.slice(textArea.selectionEnd);
                 }
+            };
+
+            var deletePost = function() {
+                var x = new XMLHttpRequest();
+                // TODO: handle error
+                x.onreadystatechange = function() { document.location = "/_admin"; };
+                x.open('DELETE', window.location.href);
+                x.send();
             };
         </script>
     </body>
