@@ -194,6 +194,11 @@ func build() {
 	}
 }
 
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil || !os.IsNotExist(err)
+}
+
 func main() {
 	build()
 
@@ -228,7 +233,7 @@ func main() {
 				http.Error(w, "error: "+err.Error(), 400)
 				return
 			}
-			postName := r.FormValue("post_name")
+			postName := r.FormValue("new-post-name")
 			postFilename := regexp.MustCompile(`[^\w\d-]`).ReplaceAllString(postName, "-") + ".md"
 
 			author := "charles"
@@ -240,13 +245,23 @@ func main() {
 				[]byte{},
 			}
 
-			source, err := os.Create(path.Join("raw", postFilename))
+			rawPath := path.Join("raw", postFilename)
+			if fileExists(rawPath) {
+				http.Error(w, "error: post already exists: "+postFilename, 400)
+				return
+			}
+
+			source, err := os.Create(rawPath)
 			if err != nil {
 				http.Error(w, "error: "+err.Error(), 500)
 				return
 			}
 			defer source.Close()
-			p.savePost(source)
+
+			if err := p.savePost(source); err != nil {
+				http.Error(w, "error: "+err.Error(), 500)
+				return
+			}
 
 			http.Redirect(w, r, "/_admin/"+postFilename, http.StatusMovedPermanently)
 		})

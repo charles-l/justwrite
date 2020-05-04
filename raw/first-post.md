@@ -23,6 +23,7 @@ TODO
 	- here's an inner list...
 * add authentication
 * maybe add `git` support?
+* flash messages
 
 [typeplate](http://typeplate.com/) is a good starting point.
 
