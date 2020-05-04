@@ -42,11 +42,11 @@
                 <form action="/_admin/{{.Name}}" method="post">
                     <div class="toolbar">
                         <button type="button" onclick="toggleOnSelection('_')"><i>emphasis</i></button>
-                        <button type="button" onclick="toggleOnSelection('`')"><code>code</code></button>
+                        <button type="button" onclick="toggleCode()"><code>code</code></button>
                         <button type="button" onclick="prefixBlockQuote()">&gt; quote</button>
                     </div>
                     <textarea id="contents" name="contents">{{.Contents}}</textarea>
-                    <input type="submit" value="Save"/>
+                    <input type="submit" value="Publish"/>
                 </form>
             </main>
         </div>
@@ -79,6 +79,22 @@
                 textArea.value = textArea.value.slice(0, start) +
                     lines +
                     textArea.value.slice(end);
+            }
+
+            var toggleCode = function() {
+                var s = textArea.value;
+                var [start, end] = expandToLines(s,
+                    textArea.selectionStart, textArea.selectionEnd);
+                console.log(s.slice(start,end));
+                if(s.slice(start, end).includes("\n")) {
+                    textArea.value = s.slice(0, textArea.selectionStart) +
+                        "```\n" +
+                        s.slice(textArea.selectionStart, textArea.selectionEnd) +
+                        "\n```\n" +
+                        s.slice(textArea.selectionEnd);
+                } else {
+                    toggleOnSelection('`');
+                }
             }
 
             var toggleOnSelection = function(char) {
