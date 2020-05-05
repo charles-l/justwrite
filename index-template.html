@@ -1,0 +1,26 @@
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <link rel="stylesheet" type="text/css" href="/style.css">
+    </head>
+    <body>
+        <div class="w">
+            <header>
+                <span class="logo">W</span>
+            </header>
+            <main>
+            <ul>
+            {{- range . }}
+                <li><a href="{{.Path}}">{{.Post.Title}}</a></li>
+            {{- end}}
+            </ul>
+            </main>
+        </div>
+
+        <!--footer>
+            <div>
+                <p>Stuff stuff, &copy; 2013, etc</p>
+            </div>
+        </footer-->
+    </body>
+</html>

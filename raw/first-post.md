@@ -1,5 +1,5 @@
 +++
-Title = Test
+Title = First post
 Author = Charles
 Date = 2019-01-01
 +++
@@ -16,14 +16,30 @@ OK -- so this _is_ finally getting somewhere!
 
 TODO
 
-* make sure the editing experience is nice (maybe compare with medium >_<)
+* ~~make sure the editing experience is nice (maybe compare with medium >_<)~~
 * add the content optimization pipeline, and allow uploading images/drag-n-drop
-* add post previews -- possibly using websockets to do live updates
 * oh, and add hanging punctuation.
-	- here's an inner list...
+	- here's an inner list... (TODO: fixme)
 * add authentication
-* maybe add `git` support?
 * flash messages
+* add ability to choose a hero image
+* make nice code rendering
+* make index page nicer
+    * allow users to add a blurb, show contact info, etc
+* add author metadata
+* bundle things into a single executable
+    * make executable nice to work with
+
+## v2 (probably)
+
+* maybe add `git` support?
+* add post previews -- possibly using websockets to do live updates
+* make admin interface nicer (check if logged in, add edit button to posts?)
+* add metrics page (track user log-ins etc)
+* add auto https (unless this is needed to secure admin login...)
+* add stripe or donate button support?
+* oauth?
+
 
 [typeplate](http://typeplate.com/) is a good starting point.
 

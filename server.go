@@ -42,7 +42,7 @@ func loadPost(r io.Reader) (Post, error) {
 	}
 
 	// Remove CRLF
-	bs = bytes.ReplaceAll(bs, []byte("\r\n"), []byte("\n"))
+	bs = bytes.Replace(bs, []byte("\r\n"), []byte("\n"), -1)
 
 	s := strings.TrimSpace(string(bs[:len(metadataDelimiter)+1]))
 	if s == metadataDelimiter {
@@ -102,15 +102,17 @@ func (m PostMetadata) isPublishedUpToDate() bool {
 	return m.PublishedAt != nil && m.LastUpdated.Before(*m.PublishedAt)
 }
 
-func loadPostMetadata(postName string) (PostMetadata, error) {
-	publishedPostName := strings.TrimSuffix(postName, ".md") + ".html"
+func postPublishedName(postName string) string {
+	return strings.TrimSuffix(postName, ".md") + ".html"
+}
 
+func loadPostMetadata(postName string) (PostMetadata, error) {
 	rawStat, err := os.Stat(path.Join("raw", postName))
 	if err != nil {
 		return PostMetadata{}, err
 	}
 
-	buildStat, err := os.Stat(path.Join("build", publishedPostName))
+	buildStat, err := os.Stat(path.Join("build", postPublishedName(postName)))
 	if os.IsNotExist(err) {
 		return PostMetadata{rawStat.ModTime(), nil}, nil
 	} else if err != nil {
@@ -146,7 +148,7 @@ func (p Post) savePost(w io.Writer) error {
 }
 
 func (p Post) renderPost(w io.Writer) {
-	tmpl := template.Must(template.ParseFiles("template.html"))
+	tmpl := template.Must(template.ParseFiles("post-template.html"))
 	md := markdown.New(markdown.XHTMLOutput(true))
 
 	err := tmpl.Execute(w, struct {
@@ -166,6 +168,11 @@ func build() {
 		log.Fatal(err)
 	}
 
+	var publishedPosts []struct {
+		Path string
+		Post Post
+	}
+
 	for _, f := range files {
 		if !strings.HasSuffix(f.Name(), ".md") {
 			continue
@@ -183,7 +190,13 @@ func build() {
 			log.Fatal(f.Name()+": ", err)
 		}
 
-		out, err := os.Create(path.Join("build", strings.TrimSuffix(f.Name(), ".md")+".html"))
+		// TODO don't pass the contents along too -- they're not needed at this point
+		publishedPosts = append(publishedPosts, struct {
+			Path string
+			Post Post
+		}{postPublishedName(f.Name()), p})
+
+		out, err := os.Create(path.Join("build", postPublishedName(f.Name())))
 		defer out.Close()
 
 		if err != nil {
@@ -192,6 +205,16 @@ func build() {
 
 		p.renderPost(out)
 	}
+
+	out, err := os.Create(path.Join("build", "index.html"))
+	defer out.Close()
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	tmpl := template.Must(template.ParseFiles("index-template.html"))
+	tmpl.Execute(out, publishedPosts)
 }
 
 func fileExists(path string) bool {
@@ -206,7 +229,7 @@ func main() {
 	router.Use(middleware.NewCompressor(5, "text/html", "text/css").Handler)
 	router.Use(middleware.Logger)
 
-	router.Route("/_admin/", func(adminRoute chi.Router) {
+	router.Route("/_admin", func(adminRoute chi.Router) {
 		adminRoute.Get("/", func(w http.ResponseWriter, r *http.Request) {
 			tmpl := template.Must(template.ParseFiles("post-list-template.html"))
 
@@ -316,8 +339,7 @@ func main() {
 			defer source.Close()
 			p.savePost(source)
 
-			publishedPostName := strings.TrimSuffix(postName, ".md") + ".html"
-			out, err := os.Create(path.Join("build", publishedPostName))
+			out, err := os.Create(path.Join("build", postPublishedName(postName)))
 			defer out.Close()
 
 			if err != nil {
@@ -333,9 +355,8 @@ func main() {
 		adminRoute.Delete("/{postName}", func(w http.ResponseWriter, r *http.Request) {
 			// TODO: secure this a bit
 			postName := chi.URLParam(r, "postName")
-			publishedPostName := strings.TrimSuffix(postName, ".md") + ".html"
 
-			os.Remove(path.Join("build", publishedPostName))
+			os.Remove(path.Join("build", postPublishedName(postName)))
 			os.Remove(path.Join("raw", postName))
 
 			http.Redirect(w, r, "/_admin/", http.StatusMovedPermanently)
