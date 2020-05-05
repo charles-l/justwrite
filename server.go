@@ -230,6 +230,29 @@ func main() {
 	router.Use(middleware.Logger)
 
 	router.Route("/_admin", func(adminRoute chi.Router) {
+		adminRoute.Post("/images", func(w http.ResponseWriter, r *http.Request) {
+			r.ParseMultipartForm(32 * 1024 * 1024)
+			file, handler, err := r.FormFile("file")
+			if err != nil {
+				http.Error(w, err.Error(), 500)
+				return
+			}
+			defer file.Close()
+
+			// TODO put original version in raw, and add processing step that optimizes images
+			// TODO give users a way of choosing image optimization settings
+			// TODO sanatize filename -- rename it to a GUID file
+			f, err := os.OpenFile(path.Join("build", handler.Filename), os.O_WRONLY|os.O_CREATE, 0666)
+			if err != nil {
+				http.Error(w, err.Error(), 500)
+				return
+			}
+			defer f.Close()
+			io.Copy(f, file)
+
+			fmt.Fprintf(w, "%s", handler.Filename)
+		})
+
 		adminRoute.Get("/", func(w http.ResponseWriter, r *http.Request) {
 			tmpl := template.Must(template.ParseFiles("post-list-template.html"))
 

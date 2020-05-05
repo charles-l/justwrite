@@ -21,6 +21,9 @@
         .single-button-form {
             display: inline-block;
         }
+        .highlight {
+            background: #ccc;
+        }
         </style>
     </head>
     <body>
@@ -52,7 +55,7 @@
         </div>
         <script src="/behave.js"></script>
         <script>
-            var textArea = document.getElementById('contents');
+            let textArea = document.getElementById('contents');
             var editor = new Behave({textarea: textArea});
 
             var expandToLines = function(str, start, end) {
@@ -85,7 +88,6 @@
                 var s = textArea.value;
                 var [start, end] = expandToLines(s,
                     textArea.selectionStart, textArea.selectionEnd);
-                console.log(s.slice(start,end));
                 if(s.slice(start, end).includes("\n")) {
                     textArea.value = s.slice(0, textArea.selectionStart) +
                         "```\n" +
@@ -115,12 +117,34 @@
             };
 
             var deletePost = function() {
-                var x = new XMLHttpRequest();
-                // TODO: handle error
-                x.onreadystatechange = function() { document.location = "/_admin"; };
-                x.open('DELETE', window.location.href);
-                x.send();
+                fetch(document.location, {method: 'DELETE'}).then(_ => document.location = "/_admin");
             };
+
+            {
+                ['dragenter', 'dragover'].forEach(function(n) {
+                    textArea.addEventListener(n, e => textArea.classList.add('highlight'));
+                });
+
+                ['dragleave', 'drop'].forEach(function(n) {
+                    textArea.addEventListener(n, e => textArea.classList.remove('highlight'));
+                });
+
+                textArea.addEventListener('drop', function(e) {
+                    e.preventDefault();
+                    let files = e.dataTransfer.files;
+                    for(i = 0; i < files.length; i++) {
+                        let formData = new FormData();
+                        formData.append('file', files[i]);
+
+                        // TODO: feedback for progress/error popups
+                        fetch('/_admin/images', {method: 'POST', body: formData}).then(r => r.text())
+                            .then(function(f) {
+                                textArea.value = textArea.value.slice(0, textArea.selectionStart) + '![](' + f + ')' +
+                                    textArea.value.slice(textArea.selectionEnd);
+                            });
+                    }
+                });
+            }
         </script>
     </body>
 </html>

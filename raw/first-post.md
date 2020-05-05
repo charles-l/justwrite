@@ -14,7 +14,7 @@ it even supports code: `<html>`
 
 OK -- so this _is_ finally getting somewhere!
 
-TODO
+## MVP TODO
 
 * ~~make sure the editing experience is nice (maybe compare with medium >_<)~~
 * add the content optimization pipeline, and allow uploading images/drag-n-drop
@@ -29,9 +29,11 @@ TODO
 * add author metadata
 * bundle things into a single executable
     * make executable nice to work with
+* fix h1/h2/h3/h4/h5 display with title, etc
 
 ## v2 (probably)
 
+* some kind of indieweb integration for medium claps
 * maybe add `git` support?
 * add post previews -- possibly using websockets to do live updates
 * make admin interface nicer (check if logged in, add edit button to posts?)
