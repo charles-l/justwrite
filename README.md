@@ -1,3 +1,5 @@
+### Archiving project after realizing https://github.com/writeas/writefreely exists.
+
 # justwrite
 
 A blogging tool with an emphasis on semantic content, high-quality design, and performance.
